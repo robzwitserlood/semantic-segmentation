@@ -9,7 +9,6 @@ import xarray as xr
 import rioxarray as rxr
 import pandas as pd
 import geopandas as gpd
-import earthpy.plot as ep
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
@@ -301,27 +300,15 @@ class DataSetCreator:
 
         fig, ax = plt.subplots(2, 2, figsize=(15, 15))
 
-        ep.plot_rgb(tile_ds[['red', 'green', 'blue']].to_array().values, ax=ax[0, 0])
-        ep.plot_rgb(tile_ds[['red', 'green', 'blue']].to_array().values, ax=ax[0, 1])
-        ep.plot_rgb(tile_ds[['red', 'green', 'blue']].to_array().values, ax=ax[1, 0])
-        ep.plot_rgb(tile_ds[['red', 'green', 'blue']].to_array().values, ax=ax[1, 1])
+        rgb = np.moveaxis(tile_ds[['red', 'green', 'blue']].to_array().values, 0, -1)
+        ax[0, 0].imshow(rgb)
+        ax[0, 1].imshow(rgb)
+        ax[1, 0].imshow(rgb)
+        ax[1, 1].imshow(rgb)
 
-        ep.plot_bands(tile_ds['unknown'], 
-                    cmap='Blues', 
-                    alpha=0.5, 
-                    ax=ax[0, 1], 
-                    cbar=False)
-
-        ep.plot_bands(tile_ds['pervious'], 
-                    cmap='Blues', 
-                    alpha=0.5, 
-                    ax=ax[1, 0], 
-                    cbar=False)
-        ep.plot_bands(tile_ds['impervious'], 
-                    cmap='Blues', 
-                    alpha=0.5, 
-                    ax=ax[1, 1], 
-                    cbar=False)
+        ax[0, 1].imshow(tile_ds['unknown'].values, cmap='Blues', alpha=0.5)
+        ax[1, 0].imshow(tile_ds['pervious'].values, cmap='Blues', alpha=0.5)
+        ax[1, 1].imshow(tile_ds['impervious'].values, cmap='Blues', alpha=0.5)
 
         ax[0, 0].set_title('satelliet_beeld')
         ax[0, 1].set_title('unknown')
@@ -401,7 +388,7 @@ class ExploratoryDataAnalysis:
         ax[0].axis('off')
         ax[1].axis('off')
 
-        ep.plot_rgb(self.ds[['red', 'green', 'blue']].to_array().values, ax=ax[0])
+        ax[0].imshow(np.moveaxis(self.ds[['red', 'green', 'blue']].to_array().values, 0, -1))
         self.gdf.plot(column=column_name, ax=ax[1], legend=True, cax=ax[2])
 
         ax[1].tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
@@ -428,7 +415,7 @@ class ExploratoryDataAnalysis:
         fig, ax = plt.subplots(1, 1, figsize=(15, 15))
         ax.axis('off')
 
-        ep.plot_rgb(self.ds[['red', 'green', 'blue']].to_array().values, ax=ax, extent=self.plotting_extent)
+        ax.imshow(np.moveaxis(self.ds[['red', 'green', 'blue']].to_array().values, 0, -1), extent=self.plotting_extent)
         self.gdf[self.mask].plot(ax=ax)
 
         ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
@@ -451,7 +438,7 @@ class ExploratoryDataAnalysis:
         masks = [self.gdf[column_name].fillna(0) < thld for thld in thld_values]
 
         for i, ax in enumerate(axs):
-            ep.plot_rgb(self.ds[['red', 'green', 'blue']].to_array().values, ax=ax, extent=self.plotting_extent)
+            ax.imshow(np.moveaxis(self.ds[['red', 'green', 'blue']].to_array().values, 0, -1), extent=self.plotting_extent)
             self.gdf[masks[i]].plot(ax=ax)
 
         [ax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False) for ax in axs]
