@@ -12,7 +12,6 @@ from tqdm import tqdm
 from shapely import geometry
 
 import xarray as xr
-import earthpy.plot as ep
 from matplotlib.patches import Patch
 from owslib.wfs import WebFeatureService
 
@@ -473,9 +472,10 @@ class PerformanceEvaluation:
         # Initialize figure
         fig, ax = plt.subplots(1, 3, figsize=(17, 5))
         # Plot rgb of satelite image as base layer
-        ep.plot_rgb(input_ds[['red', 'green', 'blue']].to_array().values, ax=ax[0])
-        ep.plot_rgb(input_ds[['red', 'green', 'blue']].to_array().values, ax=ax[1])
-        ep.plot_rgb(input_ds[['red', 'green', 'blue']].to_array().values, ax=ax[2])
+        rgb = np.moveaxis(input_ds[['red', 'green', 'blue']].to_array().values, 0, -1)
+        ax[0].imshow(rgb)
+        ax[1].imshow(rgb)
+        ax[2].imshow(rgb)
         # Transform labels to masks in order to plot on top of base layer
         input_mask = input_ds[['impervious', 'pervious', 'unknown']].to_array().values
         input_mask = np.argmax(input_mask, axis=0)
