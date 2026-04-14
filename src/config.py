@@ -46,7 +46,7 @@ config_download_data = {
         'wmts_layer': '2022_orthoHR',
         'wmts_zoom': 13,          # zoom 13 → ~0.42 m/px; increase for finer detail at cost of more requests
         'bbox': (None, None, None, None),  # populated at runtime by update_globals_based_on_region_name()
-        'storage_dir': '.data/raw/aerial_imagery',
+        'storage_dir': 'data/raw/aerial_imagery',
         'file_name': '2022_X_Y_RGB_hrl.tif',
     },
 }
