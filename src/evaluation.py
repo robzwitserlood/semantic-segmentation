@@ -44,25 +44,39 @@ def tile_in_neighbourhood(tile_geom, nbh_list):
 class PerformanceEvaluation:
     """Evaluate performance of model by analysing predictions
     """
-    
-    def __init__(self, config, log_files, tbbox, geom):
+
+    def __init__(self, dataset_dir, datasplit_filename, agg_tile_filename,
+                 pred_dir, agg_pred_filename,
+                 log_dir, log_files,
+                 nbh_path, nbh_url,
+                 tbbox, geom):
         """Constructor method
+
+        :param dataset_dir: directory containing tile .nc files and parquet metadata
+        :param datasplit_filename: parquet file name for data split
+        :param agg_tile_filename: parquet file name for aggregated tile characteristics
+        :param pred_dir: directory containing prediction .nc files
+        :param agg_pred_filename: parquet file name for aggregated predictions
+        :param log_dir: directory containing training log JSON files
+        :param log_files: list of training log file names
+        :param nbh_path: path to neighbourhood GML file
+        :param nbh_url: WFS URL to download neighbourhood GML if not cached
+        :param tbbox: tiled bounding box object
+        :param geom: region geometry
         """
-        # Get paths to set attibutes
         cwd = pathlib.Path().cwd()
-        datasplit_path = cwd / config['dataset']['storage_dir'] / config['datasplit']['data_split_file_name']
-        agg_pred_path = cwd / config['model']['pred_storage_dir'] / config['model']['agg_pred_file_name']
-        agg_tile_path = cwd / config['dataset']['storage_dir'] / config['dataset']['agg_tile_data_file_name']
-        log_paths = [cwd / config['training']['log_storage_dir'] / i for i in log_files]
-        nbh_path = cwd / config['error_analysis']['neighbourhood_geoms']['storage_dir'] / config['error_analysis']['neighbourhood_geoms']['file_name']
+        datasplit_path = cwd / dataset_dir / datasplit_filename
+        agg_pred_path = cwd / pred_dir / agg_pred_filename
+        agg_tile_path = cwd / dataset_dir / agg_tile_filename
+        log_paths = [cwd / log_dir / f for f in log_files]
         # Set attributes
-        self.tile_input_dir = cwd / config['dataset']['storage_dir']
-        self.tile_output_dir = cwd / config['model']['pred_storage_dir']
+        self.tile_input_dir = cwd / dataset_dir
+        self.tile_output_dir = cwd / pred_dir
         self.datasplit = pd.read_parquet(datasplit_path)
         self.agg_pred = pd.read_parquet(agg_pred_path)
         self.agg_tile = pd.read_parquet(agg_tile_path)
         self.log_dict = self.get_log_dict(log_paths)
-        self.nbh_gdf = self.get_nbh_gdf(nbh_path, config['error_analysis']['neighbourhood_geoms']['source'])
+        self.nbh_gdf = self.get_nbh_gdf(pathlib.Path(nbh_path), nbh_url)
         self.tbbox = tbbox
         self.geom = geom
                 
@@ -293,7 +307,7 @@ class PerformanceEvaluation:
         # Get confusion matrices
         cm = self.get_confusion_matrices_per_split(dim=1)
         # Set class names
-        classes = ['volledig verhard', 'volledig onverhard', 'onbekend']
+        classes = ['impervious', 'pervious', 'unknown']
         # Create multi-index for DataFrame
         index = pd.MultiIndex.from_arrays([['ground truth'] * 3, classes])
         # Display all matrices
@@ -308,7 +322,7 @@ class PerformanceEvaluation:
         # Get confusion matrices
         cm_in, cm_out = self.get_confusion_matrices_by_region(dim=1)
         # Set class names
-        classes = ['volledig verhard', 'volledig onverhard', 'onbekend']
+        classes = ['impervious', 'pervious', 'unknown']
         # Create multi-index for DataFrame
         index = pd.MultiIndex.from_arrays([['ground truth'] * 3, classes])
         # Display all matrices
@@ -327,7 +341,7 @@ class PerformanceEvaluation:
         # Get confusion matrices
         cm_1, cm_2 = nbh_cm[nbh_1], nbh_cm[nbh_2]
         # Set class names
-        classes = ['volledig verhard', 'volledig onverhard', 'onbekend']
+        classes = ['impervious', 'pervious', 'unknown']
         # Create multi-index for DataFrame
         index = pd.MultiIndex.from_arrays([['ground truth'] * 3, classes])
         # Display all matrices
@@ -348,8 +362,8 @@ class PerformanceEvaluation:
         # Get dataframe with tile aggregated data
         gdf_in, _ = self.split_tiles_by_region()
         # Calculate performance metrics
-        gdf_in['recall_onverhard'] = gdf_in['cm_1_1'] / (gdf_in['cm_1_0'] + gdf_in['cm_1_1'])
-        gdf_in['recall_verhard'] = gdf_in['cm_0_0'] / (gdf_in['cm_0_0'] + gdf_in['cm_0_1'])
+        gdf_in['recall_pervious'] = gdf_in['cm_1_1'] / (gdf_in['cm_1_0'] + gdf_in['cm_1_1'])
+        gdf_in['recall_impervious'] = gdf_in['cm_0_0'] / (gdf_in['cm_0_0'] + gdf_in['cm_0_1'])
         # Copy dataframe with neighbourhoods to temporarily add coordinate column
         nbh_gdf = self.nbh_gdf.copy()
         nbh_gdf.geometry = nbh_gdf.geometry.boundary
@@ -411,8 +425,8 @@ class PerformanceEvaluation:
         # Make column names more expressive
         multi_col = pd.MultiIndex.from_arrays([
             ['output'] * 6,
-            ['correct'] * 2 + ['incorrect'] * 2 + ['onbekend'] * 2,
-            ['volledig_verhard', 'volledig_onverhard'] * 3,
+            ['correct'] * 2 + ['incorrect'] * 2 + ['unknown'] * 2,
+            ['impervious', 'pervious'] * 3,
         ])
         df_corr.columns = multi_col
         # Make index names more expressive
@@ -463,7 +477,7 @@ class PerformanceEvaluation:
         ep.plot_rgb(input_ds[['red', 'green', 'blue']].to_array().values, ax=ax[1])
         ep.plot_rgb(input_ds[['red', 'green', 'blue']].to_array().values, ax=ax[2])
         # Transform labels to masks in order to plot on top of base layer
-        input_mask = input_ds[['volledig_verhard', 'volledig_onverhard', 'onbekend']].to_array().values
+        input_mask = input_ds[['impervious', 'pervious', 'unknown']].to_array().values
         input_mask = np.argmax(input_mask, axis=0)
         output_mask = output_ds.to_array().values.squeeze()
         # Plot masks on top of base layer
@@ -473,7 +487,7 @@ class PerformanceEvaluation:
         ax[0].set_title('image')
         ax[1].set_title('input labels')
         ax[2].set_title('predicted labels')
-        class_dict = {0: 'volledig_verhard', 1: 'volledig_onverhard', 2: 'onbekend'}
+        class_dict = {0: 'impervious', 1: 'pervious', 2: 'unknown'}
         patches = [Patch(color=im.cmap(im.norm(key)), label=value) for key, value in class_dict.items()]
         ax[2].legend(handles=patches, ncol=3, bbox_to_anchor=(1.06, -0.025), loc=1, frameon=False)
 

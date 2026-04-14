@@ -317,7 +317,7 @@ def drop_unused_rows(gdf):
     # Delete geometry types without surface area
     mask1 = gdf.geometry.type.str.contains('Polygon')
     gdf = gdf[mask1]
-    # Delete rows labeled as unknown (onbekend)
+    # Delete rows labeled as unknown (unknown)
     mask2 = gdf.label != 2
     gdf = gdf[mask2]
 

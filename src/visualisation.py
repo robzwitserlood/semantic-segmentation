@@ -202,13 +202,13 @@ def save_confusion_matrix_as_image(cell_values, path):
     # Set header and index
     table_values = np.full((5, 5), '', dtype=object)
     table_values[0, 2] = '<b>prediction</b><br>'
-    table_values[1, 2:] = ['<b>volledig</b><br><b>verhard</b>',
-                            '<b>volledig</b><br><b>onverhard</b>',
-                            '<b>onbekend</b><br> ']
+    table_values[1, 2:] = ['<b>impervious</b><br> ',
+                            '<b>pervious</b><br> ',
+                            '<b>unknown</b><br> ']
     table_values[2, 0] = '<b>ground</b><br><b>truth</b>'
-    table_values[2:, 1] = ['<b>volledig</b><br><b>verhard</b>',
-                            '<b>volledig</b><br><b>onverhard</b>',
-                            '<b>onbekend</b><br> ']
+    table_values[2:, 1] = ['<b>impervious</b><br> ',
+                            '<b>pervious</b><br> ',
+                            '<b>unknown</b><br> ']
     # Include cell values
     table_values[2:, 2:] = np.array(str_val).reshape(3, 3)
     # Set coloring schema
@@ -354,9 +354,9 @@ def export_ground_truth_label_distribution(engine):
                    labelbottom=False)
     ax2.xaxis.set_visible(False)
     ax.set_xlim(0, np.sum(data, axis=1).max())
-    category_names = ['volledig verhard',
-                      'volledig onverhard',
-                      'onbekend']
+    category_names = ['impervious',
+                      'pervious',
+                      'unknown']
     for i, (colname, color) in enumerate(zip(category_names, category_colors)):
         widths = data[:, i]
         starts = data_cum[:, i] - widths
@@ -512,9 +512,9 @@ def export_example_tiles():
     ax[0].set_title('image')
     ax[1].set_title('input labels')
     ax[2].set_title('predicted labels')
-    class_dict = {0: 'volledig_verhard',
-                  1: 'volledig_onverhard',
-                  2: 'onbekend'}
+    class_dict = {0: 'impervious',
+                  1: 'pervious',
+                  2: 'unknown'}
     # Formatting
     for axis in ax:
         axis.tick_params(left=False,

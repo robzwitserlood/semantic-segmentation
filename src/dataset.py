@@ -107,13 +107,13 @@ class DataSetCreator:
         """
         # Groupby label to find overlap
         geoms_per_label = gdf_tile.dissolve(by='label')[['geometry']]
-        geoms_per_label = geoms_per_label.reindex(['volledig_verhard', 'volledig_onverhard'], fill_value=geometry.Polygon())
+        geoms_per_label = geoms_per_label.reindex(['impervious', 'pervious'], fill_value=geometry.Polygon())
         geoms_per_label_copy = geoms_per_label.copy()
         # Remove overlap
-        geoms_per_label.loc['volledig_verhard', 'geometry'] = geoms_per_label_copy.loc['volledig_verhard', 'geometry'].difference(
-            geoms_per_label_copy.loc['volledig_onverhard', 'geometry'])
-        geoms_per_label.loc['volledig_onverhard', 'geometry'] = geoms_per_label_copy.loc['volledig_onverhard', 'geometry'].difference(
-            geoms_per_label_copy.loc['volledig_verhard', 'geometry'])
+        geoms_per_label.loc['impervious', 'geometry'] = geoms_per_label_copy.loc['impervious', 'geometry'].difference(
+            geoms_per_label_copy.loc['pervious', 'geometry'])
+        geoms_per_label.loc['pervious', 'geometry'] = geoms_per_label_copy.loc['pervious', 'geometry'].difference(
+            geoms_per_label_copy.loc['impervious', 'geometry'])
         
         return geoms_per_label.reset_index()
     
@@ -150,16 +150,16 @@ class DataSetCreator:
         # Create dataset with satelitte band as start point
         tile_ds = xdsc.to_dataset(dim='band').rename({1: 'red', 2: 'green', 3: 'blue'})
         # Add columns to GeoDataFrame for rasterization purposes
-        gdfc['volledig_verhard'] = gdfc['label'].apply(lambda x: 1 if x == 'volledig_verhard' else 0)
-        gdfc['volledig_onverhard'] = gdfc['label'].apply(lambda x: 1 if x == 'volledig_onverhard' else 0)
+        gdfc['impervious'] = gdfc['label'].apply(lambda x: 1 if x == 'impervious' else 0)
+        gdfc['pervious'] = gdfc['label'].apply(lambda x: 1 if x == 'pervious' else 0)
         # Rasterize GeoDataFrame with ground truth data
-        out_grid_vv = rasterize_accordingly(gdfc, tile_ds, 'volledig_verhard')
-        out_grid_vo = rasterize_accordingly(gdfc, tile_ds, 'volledig_onverhard')
-        # Remove overlap between the two labels (volledig_verhard, volledig_onverhard)
-        tile_ds['volledig_verhard'] = xr.where((out_grid_vv > 0.5) & (out_grid_vo < 0.5), 1, 0)
-        tile_ds['volledig_onverhard'] = xr.where((out_grid_vo > 0.5) & (out_grid_vv < 0.5), 1, 0)
-        # Explicitly label unknown pixels as unknown (onbekend)
-        tile_ds['onbekend'] = xr.where(tile_ds.volledig_verhard + tile_ds.volledig_onverhard == 0, 1, 0)
+        out_grid_vv = rasterize_accordingly(gdfc, tile_ds, 'impervious')
+        out_grid_vo = rasterize_accordingly(gdfc, tile_ds, 'pervious')
+        # Remove overlap between the two labels (impervious, pervious)
+        tile_ds['impervious'] = xr.where((out_grid_vv > 0.5) & (out_grid_vo < 0.5), 1, 0)
+        tile_ds['pervious'] = xr.where((out_grid_vo > 0.5) & (out_grid_vv < 0.5), 1, 0)
+        # Explicitly label unknown pixels as unknown (unknown)
+        tile_ds['unknown'] = xr.where(tile_ds.impervious + tile_ds.pervious == 0, 1, 0)
         
         return tile_ds
     
@@ -204,8 +204,8 @@ class DataSetCreator:
         :return: pixel count per label
         :rtype: pandas.DataFrame
         """
-        df = ds_tile[['volledig_verhard', 'volledig_onverhard', 'onbekend']].to_dataframe().reset_index()
-        df = df[['volledig_verhard', 'volledig_onverhard', 'onbekend']].apply(np.sum, axis=0)
+        df = ds_tile[['impervious', 'pervious', 'unknown']].to_dataframe().reset_index()
+        df = df[['impervious', 'pervious', 'unknown']].apply(np.sum, axis=0)
                                   
         return df                 
 
@@ -276,9 +276,9 @@ class DataSetCreator:
                                                                 encoding={'red': {'dtype': 'int16'},
                                                                         'green': {'dtype': 'int16'},
                                                                         'blue': {'dtype': 'int16'},
-                                                                        'volledig_verhard': {'dtype': 'int8'},
-                                                                        'volledig_onverhard': {'dtype': 'int8'},
-                                                                        'onbekend': {'dtype': 'int8'}})
+                                                                        'impervious': {'dtype': 'int8'},
+                                                                        'pervious': {'dtype': 'int8'},
+                                                                        'unknown': {'dtype': 'int8'}})
                 ds_tile.close()
             # Store aggregated data in DataFrame
             df = pd.DataFrame(agg_data, columns=bgt_agg_data.index) 
@@ -306,27 +306,27 @@ class DataSetCreator:
         ep.plot_rgb(tile_ds[['red', 'green', 'blue']].to_array().values, ax=ax[1, 0])
         ep.plot_rgb(tile_ds[['red', 'green', 'blue']].to_array().values, ax=ax[1, 1])
 
-        ep.plot_bands(tile_ds['onbekend'], 
+        ep.plot_bands(tile_ds['unknown'], 
                     cmap='Blues', 
                     alpha=0.5, 
                     ax=ax[0, 1], 
                     cbar=False)
 
-        ep.plot_bands(tile_ds['volledig_onverhard'], 
+        ep.plot_bands(tile_ds['pervious'], 
                     cmap='Blues', 
                     alpha=0.5, 
                     ax=ax[1, 0], 
                     cbar=False)
-        ep.plot_bands(tile_ds['volledig_verhard'], 
+        ep.plot_bands(tile_ds['impervious'], 
                     cmap='Blues', 
                     alpha=0.5, 
                     ax=ax[1, 1], 
                     cbar=False)
 
         ax[0, 0].set_title('satelliet_beeld')
-        ax[0, 1].set_title('onbekend')
-        ax[1, 0].set_title('volledig_onverhard')
-        ax[1, 1].set_title('volledig_verhard')
+        ax[0, 1].set_title('unknown')
+        ax[1, 0].set_title('pervious')
+        ax[1, 1].set_title('impervious')
 
         #ax[0, 0].set_figsize(6, 6)
 
@@ -469,9 +469,9 @@ class ExploratoryDataAnalysis:
         """
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
         if unmasked_only:
-            df_pie = self.gdf.loc[~self.mask, ['volledig_verhard', 'volledig_onverhard', 'onbekend']].mean(axis=0).sort_values()
+            df_pie = self.gdf.loc[~self.mask, ['impervious', 'pervious', 'unknown']].mean(axis=0).sort_values()
         else:
-            df_pie = self.gdf[['volledig_verhard', 'volledig_onverhard', 'onbekend']].mean(axis=0).sort_values()
+            df_pie = self.gdf[['impervious', 'pervious', 'unknown']].mean(axis=0).sort_values()
         df_pie.plot.pie(ax=ax,
                         autopct='%.1f%%',
                         startangle=90,
@@ -488,13 +488,13 @@ class ExploratoryDataAnalysis:
         """
         """
         if unmasked_only:
-            df_bar = self.gdf.loc[~self.mask, ['volledig_verhard', 'volledig_onverhard', 'onbekend']].apply(lambda x: x / 1000)
+            df_bar = self.gdf.loc[~self.mask, ['impervious', 'pervious', 'unknown']].apply(lambda x: x / 1000)
         else:
-            df_bar = self.gdf[['volledig_verhard', 'volledig_onverhard', 'onbekend']].apply(lambda x: x / 1000)
+            df_bar = self.gdf[['impervious', 'pervious', 'unknown']].apply(lambda x: x / 1000)
         
-        df_bar1 = df_bar.sort_values(['volledig_verhard'])
-        df_bar2 = df_bar.sort_values(['volledig_onverhard'])
-        df_bar3 = df_bar.sort_values(['onbekend'])
+        df_bar1 = df_bar.sort_values(['impervious'])
+        df_bar2 = df_bar.sort_values(['pervious'])
+        df_bar3 = df_bar.sort_values(['unknown'])
         
         fig, ax = plt.subplots(1, 3, figsize=(15, 8))
         df_bar1.plot.bar(ax=ax[0],
@@ -510,9 +510,9 @@ class ExploratoryDataAnalysis:
                         width=1,
                         color=['tab:gray','tab:green','tab:blue'])
 
-        ax[0].set_title('sort by \n "volledig_verhard"')
-        ax[1].set_title('sort by \n "volledig_onverhard"')
-        ax[2].set_title('sort by \n "onbekend"')
+        ax[0].set_title('sort by \n "impervious"')
+        ax[1].set_title('sort by \n "pervious"')
+        ax[2].set_title('sort by \n "unknown"')
 
         ax[0].tick_params(axis='x',
                           which='both',

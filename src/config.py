@@ -9,14 +9,14 @@ config_download_data = {
     'process_bestuurlijkegebieden': {
         'wfs_url': 'https://service.pdok.nl/kadaster/bestuurlijkegebieden/wfs/v1_0?request=GetCapabilities&service=WFS',
         'layer_name': 'Gemeentegebied',
-        'storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/spatial_scope',
-        'file_name': 'bestuurlijkegebieden.gml',
+        'storage_dir': '.data/raw',
+        'file_name': 'geom_in_scope.gml',
     },
     'process_wijkenbuurten': {
         'wfs_url': 'https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?request=getcapabilities&service=wfs',
         'layer_name': 'cbs_wijken_2021',
-        'storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/spatial_scope',
-        'file_name': 'cbs_wijken_2021.gml',
+        'storage_dir': '.data/raw',
+        'file_name': 'neighbourhoods.gml',
     },
     'process_bgt': {
         'post_url': 'https://api.pdok.nl/lv/bgt/download/v1_0/full/custom',
@@ -37,13 +37,13 @@ config_download_data = {
             'geofilter': '',  # Initialize as empty string
             'format': 'gmllight',
         },
-        'storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/bgt',
+        'storage_dir': '.data/raw',
         'file_name': 'bgtextract.zip',
     },
     'process_luchtfotos': {
         'url_format': 'https://ns_hwh.fundaments.nl/hwh-ortho/2022/Ortho/1/04/beelden_tif_tegels/2022_X_Y_RGB_hrl.tif',
         'bbox': (None, None, None, None),  # Initialize as tuple of None
-        'storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/aerial_imagery',
+        'storage_dir': '.data/raw/aerial_imagery',
         'file_name': '2022_X_Y_RGB_hrl.tif',
     },
 }
@@ -166,9 +166,9 @@ config_etl_aerial = {
         'bgt_storage_dir': config_download_data['process_bgt']['storage_dir'],
         'bgt_used_layers': config_download_data['process_bgt']['api_params']['featuretypes'],
         'label_id_to_name': {
-            0: 'volledig_verhard',
-            1: 'volledig_onverhard',
-            2: 'onbekend'},
+            0: 'impervious',
+            1: 'pervious',
+            2: 'unknown'},
         'layer_to_label': {
             'pand': 0,
             'ondersteunendwaterdeel': 1,
@@ -269,7 +269,7 @@ config_etl_aerial = {
         'exclude_tiles': None
     },
     'hdf5': {
-        'path': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/aerial_dataset.hdf5',
+        'path': './data/processed/aerial_dataset.hdf5',
         'dset_dict': {
             'rgb': {
                 'shape': [None, 3, 256, 256],
@@ -289,14 +289,14 @@ config_etl_aerial = {
         }
     },
     'downsample_for_plot': 125,
-    'path_downsampled_overview': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/visuals/aerial_downsampled_overview.tif'
+    'path_downsampled_overview': './visuals/aerial_downsampled_overview.tif'
 }
 
 # Initialize config settings for satellite as copy of aerial
 config_etl_satellite = copy.deepcopy(config_etl_aerial)
 # Change config settings for satellite where required
 config_etl_satellite['postgres']['db_name'] = 'satellite_imagery'
-config_etl_satellite['postgres']['dir_imagery'] = 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/satellite_imagery'
+config_etl_satellite['postgres']['dir_imagery'] = '.data/raw/satellite_imagery'
 config_etl_satellite['postgres']['file_format_imagery'] = 'QEpspUbnkZrdMGvBQiKb2W.tif'
 # Workaround for fact that sat image does not contain top-left point of geometry of Utrecht
 config_etl_satellite['postgres']['select_image_file_by_point'] = """
@@ -304,14 +304,53 @@ config_etl_satellite['postgres']['select_image_file_by_point'] = """
                                                                  FROM dimImageFiles 
                                                                  ORDER BY ST_Distance(bbox_geom, ST_Point(%s, %s)) ASC
                                                                  """
-config_etl_satellite['hdf5']['path'] = 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/satellite_dataset.hdf5'
+config_etl_satellite['hdf5']['path'] = './data/processed/satellite_dataset.hdf5'
 config_etl_satellite['downsample_for_plot'] = 20
-config_etl_satellite['path_downsampled_overview'] = 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/visuals/satellite_downsampled_overview.tif'
+config_etl_satellite['path_downsampled_overview'] = './visuals/satellite_downsampled_overview.tif'
 config_etl_satellite['postgres']['exclude_tiles'] = """
                                                     UPDATE dimTiles
                                                     SET split = 'excluded'
                                                     WHERE avg_edge < 0.025
                                                     """
+# Satellite notebook pipeline — tile .nc file and parquet storage
+config_etl_satellite['dataset'] = {
+    'storage_dir': 'storage/dataset',
+    'agg_tile_data_file_name': 'agg_tile_data_file.parquet',
+    'usable_tiles_data_file': 'usable_tiles_data_file.parquet',
+    'data_split_file_name': 'data_split_file.parquet',
+    'split_fractions': [0.8, 0.1, 0.1],
+    'stratification_columns': ['impervious', 'pervious', 'unknown', 'entropy'],
+    'stratification_bins': 5,
+}
+config_etl_satellite['predictions'] = {
+    'storage_dir': 'storage/predictions',
+    'agg_pred_file_name': 'agg_pred_data_file.parquet',
+}
+
+# Config dict for etl_bgt.process() — derived from config_download_data and config_etl_aerial
+_label_id_to_name = config_etl_aerial['postgres']['label_id_to_name']
+config_etl_bgt = {
+    'storagedirs': {
+        'bgt': config_download_data['process_bgt']['storage_dir'],
+    },
+    'bgt': {
+        'post_url': config_download_data['process_bgt']['post_url'],
+        'get_url': config_download_data['process_bgt']['get_url'],
+        'download_url': config_download_data['process_bgt']['download_url'],
+        'api_params': config_download_data['process_bgt']['api_params'],
+        'zipfilename': config_download_data['process_bgt']['file_name'],
+        'labeledgeometriesfilename': 'labeledgeometries.parquet',
+        'monolabel_featuretypes': {
+            k: _label_id_to_name[v]
+            for k, v in config_etl_aerial['postgres']['layer_to_label'].items()
+        },
+        'bgt-fysiekVoorkomen': {
+            k: _label_id_to_name[v]
+            for k, v in config_etl_aerial['postgres']['fysiekVoorkomen_to_label'].items()
+        },
+        'columns': ['identificatie.lokaalID', 'featuretype', 'label', 'geometry'],
+    },
+}
 
 # Module utils.py
 config_utils = {
@@ -353,7 +392,7 @@ config_modelling_aerial = {
         'pretrained': 'imagenet',
         'activation': 'softmax',
         'num_classes': 3,
-        'storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/aerial_models',
+        'storage_dir': './artifacts/aerial_models',
     },
     'training': {
         'phase_1': {
@@ -376,7 +415,7 @@ config_modelling_aerial = {
             },
             'num_epochs': 3
         },
-        'log_storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/aerial_train_log',
+        'log_storage_dir': './logs/aerial_train_log',
         'batch_size': 64,
         'phase_2': {
             'requires_grad': [
@@ -434,8 +473,8 @@ config_modelling_aerial = {
 config_modelling_satellite = copy.deepcopy(config_modelling_aerial)
 config_modelling_satellite['postgres']['db_name'] = config_etl_satellite['postgres']['db_name']
 config_modelling_satellite['hdf5']['path'] = config_etl_satellite['hdf5']['path']
-config_modelling_satellite['model']['storage_dir'] = 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/satellite_models'
-config_modelling_satellite['training']['log_storage_dir'] = 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/storage/satellite_train_log'
+config_modelling_satellite['model']['storage_dir'] = '.artifacts/satellite_models'
+config_modelling_satellite['training']['log_storage_dir'] = './logs/satellite_train_log'
 config_modelling_satellite['training']['phase_1']['cross_entropy_loss_class_weights'] = [0.62553, 0.37447, 0]
 config_modelling_satellite['training']['phase_2']['cross_entropy_loss_class_weights'] = [0.62553, 0.37447, 0]
 config_modelling_satellite['training']['phase_3']['cross_entropy_loss_class_weights'] = [0.62553, 0.37447, 0]
@@ -466,7 +505,7 @@ config_visualisation_aerial = {
         'filename': config_download_data['process_wijkenbuurten']['file_name']
     },
     'path_downsampled_overview': config_etl_aerial['path_downsampled_overview'],
-    'storage_dir': 'X:/Kennisbasis/Datascience/AVIVL/data/pilot_verharding_stad/visuals',
+    'storage_dir': './visuals',
     'log_storage_dir': config_modelling_aerial['training']['log_storage_dir'],
     'log_files': [
         '20230405094352_phase_1_logfile.json',
