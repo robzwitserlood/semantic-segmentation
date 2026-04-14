@@ -49,6 +49,14 @@ sudo dpkg -i libtinfo5_6.3-2ubuntu0.1_amd64.deb
 sudo apt install -y cuda-toolkit-12-1
 ```
 
+Add CUDA binaries to your PATH (the installer does not do this automatically):
+
+```bash
+echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
 Verify the installation:
 
 ```bash
