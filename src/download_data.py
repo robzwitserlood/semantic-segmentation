@@ -11,10 +11,10 @@ from tqdm import tqdm
 
 from owslib.wfs import WebFeatureService
 
-from config import download_data
+from config import config_download_data
 
 # Set configuration parameters as global
-PARAMS = download_data.copy()
+PARAMS = config_download_data.copy()
 
 
 def store_data_from_wfs(wfs_url, layer_name, path):
