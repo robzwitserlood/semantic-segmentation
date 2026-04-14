@@ -9,13 +9,13 @@ config_download_data = {
     'process_bestuurlijkegebieden': {
         'wfs_url': 'https://service.pdok.nl/kadaster/bestuurlijkegebieden/wfs/v1_0?request=GetCapabilities&service=WFS',
         'layer_name': 'Gemeentegebied',
-        'storage_dir': '.data/raw',
+        'storage_dir': 'data/raw',
         'file_name': 'geom_in_scope.gml',
     },
     'process_wijkenbuurten': {
         'wfs_url': 'https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v2_0?request=getcapabilities&service=WFS',
         'layer_name': 'wijken',
-        'storage_dir': '.data/raw',
+        'storage_dir': 'data/raw',
         'file_name': 'neighbourhoods.gml',
     },
     'process_bgt': {
@@ -37,7 +37,7 @@ config_download_data = {
             'geofilter': '',  # Initialize as empty string
             'format': 'gmllight',
         },
-        'storage_dir': '.data/raw',
+        'storage_dir': 'data/raw',
         'file_name': 'bgtextract.zip',
     },
     'process_luchtfotos': {
@@ -299,7 +299,7 @@ config_etl_aerial = {
 config_etl_satellite = copy.deepcopy(config_etl_aerial)
 # Change config settings for satellite where required
 config_etl_satellite['postgres']['db_name'] = 'satellite_imagery'
-config_etl_satellite['postgres']['dir_imagery'] = '.data/raw/satellite_imagery'
+config_etl_satellite['postgres']['dir_imagery'] = 'data/raw/satellite_imagery'
 config_etl_satellite['postgres']['file_format_imagery'] = 'QEpspUbnkZrdMGvBQiKb2W.tif'
 # Workaround for fact that sat image does not contain top-left point of geometry of Utrecht
 config_etl_satellite['postgres']['select_image_file_by_point'] = """

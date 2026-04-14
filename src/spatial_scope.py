@@ -1,5 +1,6 @@
 import json
 import pathlib
+import subprocess
 
 import numpy as np
 import xarray as xr
@@ -14,6 +15,25 @@ from itertools import product
 from shapely.geometry import box, mapping
 from owslib.wfs import WebFeatureService
 from owslib.wmts import WebMapTileService
+
+
+def build_aerial_vrt(storage_dir, file_format):
+    """Build a GDAL VRT mosaic from aerial GeoTIFF tiles.
+
+    :param storage_dir: directory containing the tiff files
+    :type storage_dir: str
+    :param file_format: glob pattern matching the tiff files
+    :type file_format: str
+    :return: name of the generated VRT file
+    :rtype: str
+    """
+    dir_path = pathlib.Path.cwd() / storage_dir
+    vrt_path = dir_path / 'mosaic.vrt'
+    tifs = sorted(dir_path.glob(file_format))
+    if not tifs:
+        raise FileNotFoundError(f"No files matching {file_format} in {dir_path}")
+    subprocess.run(['gdalbuildvrt', str(vrt_path)] + [str(p) for p in tifs], check=True)
+    return vrt_path.name
 
 
 class NlRegionToGeom:
