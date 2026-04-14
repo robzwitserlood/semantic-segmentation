@@ -14,7 +14,7 @@ config_download_data = {
     },
     'process_wijkenbuurten': {
         'wfs_url': 'https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v2_0?request=getcapabilities&service=WFS',
-        'layer_name': 'cbs_wijken_2021',
+        'layer_name': 'wijken',
         'storage_dir': '.data/raw',
         'file_name': 'neighbourhoods.gml',
     },
