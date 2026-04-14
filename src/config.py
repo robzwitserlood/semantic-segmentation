@@ -51,7 +51,7 @@ config_download_data = {
 }
 
 # Module etl.py
-config_etl_aerial = {
+config_etl = {
     'postgres': {
         'user': 'postgres',
         'password': 'password',
@@ -308,8 +308,8 @@ config_etl_aerial = {
     },
 }
 
-# Config dict for etl_bgt.process() — derived from config_download_data and config_etl_aerial
-_label_id_to_name = config_etl_aerial['postgres']['label_id_to_name']
+# Config dict for etl_bgt.process() — derived from config_download_data and config_etl
+_label_id_to_name = config_etl['postgres']['label_id_to_name']
 config_etl_bgt = {
     'storagedirs': {
         'bgt': config_download_data['process_bgt']['storage_dir'],
@@ -323,11 +323,11 @@ config_etl_bgt = {
         'labeledgeometriesfilename': 'labeledgeometries.parquet',
         'monolabel_featuretypes': {
             k: _label_id_to_name[v]
-            for k, v in config_etl_aerial['postgres']['layer_to_label'].items()
+            for k, v in config_etl['postgres']['layer_to_label'].items()
         },
         'bgt-fysiekVoorkomen': {
             k: _label_id_to_name[v]
-            for k, v in config_etl_aerial['postgres']['fysiekVoorkomen_to_label'].items()
+            for k, v in config_etl['postgres']['fysiekVoorkomen_to_label'].items()
         },
         'columns': ['identificatie.lokaalID', 'featuretype', 'label', 'geometry'],
     },
@@ -336,19 +336,19 @@ config_etl_bgt = {
 # Module utils.py
 config_utils = {
     'postgres': {
-        'user': config_etl_aerial['postgres']['user'],
-        'password': config_etl_aerial['postgres']['password'],
-        'host': config_etl_aerial['postgres']['host']
+        'user': config_etl['postgres']['user'],
+        'password': config_etl['postgres']['password'],
+        'host': config_etl['postgres']['host']
     }
 }
 
 # Module modelling.py
-config_modelling_aerial = {
+config_modelling = {
     'postgres': {
-        'db_name': config_etl_aerial['postgres']['db_name'], 
-        'user': config_etl_aerial['postgres']['user'],
-        'password': config_etl_aerial['postgres']['password'],
-        'host': config_etl_aerial['postgres']['host'],
+        'db_name': config_etl['postgres']['db_name'], 
+        'user': config_etl['postgres']['user'],
+        'password': config_etl['postgres']['password'],
+        'host': config_etl['postgres']['host'],
         'insert_agg_pred_data':
             """
             UPDATE dimTiles
@@ -363,7 +363,7 @@ config_modelling_aerial = {
             """
     },
     'hdf5': {
-        'path': config_etl_aerial['hdf5']['path']
+        'path': config_etl['hdf5']['path']
     },
     'low_int_seed': 2147483647,
     'seed': 42,
@@ -454,24 +454,24 @@ config_modelling_aerial = {
 # Module visualisation.py
 config_visualisation_aerial = {
     'postgres': {
-        'db_name': config_etl_aerial['postgres']['db_name'], 
-        'user': config_etl_aerial['postgres']['user'],
-        'password': config_etl_aerial['postgres']['password'],
-        'host': config_etl_aerial['postgres']['host'],
-        'dir_geom_to_be_tiled': config_etl_aerial['postgres']['dir_geom_to_be_tiled'],
-        'file_geom_to_be_tiled': config_etl_aerial['postgres']['file_geom_to_be_tiled'],
-        'region_name': config_etl_aerial['postgres']['region_name']
+        'db_name': config_etl['postgres']['db_name'], 
+        'user': config_etl['postgres']['user'],
+        'password': config_etl['postgres']['password'],
+        'host': config_etl['postgres']['host'],
+        'dir_geom_to_be_tiled': config_etl['postgres']['dir_geom_to_be_tiled'],
+        'file_geom_to_be_tiled': config_etl['postgres']['file_geom_to_be_tiled'],
+        'region_name': config_etl['postgres']['region_name']
     },
     'hdf5': {
-        'path': config_etl_aerial['hdf5']['path']
+        'path': config_etl['hdf5']['path']
     },
     'nbh': {
         'storage_dir': config_download_data['process_wijkenbuurten']['storage_dir'],
         'filename': config_download_data['process_wijkenbuurten']['file_name']
     },
-    'path_downsampled_overview': config_etl_aerial['path_downsampled_overview'],
+    'path_downsampled_overview': config_etl['path_downsampled_overview'],
     'storage_dir': './visuals',
-    'log_storage_dir': config_modelling_aerial['training']['log_storage_dir'],
+    'log_storage_dir': config_modelling['training']['log_storage_dir'],
     'log_files': [
         '20230405094352_phase_1_logfile.json',
         '20230405112131_phase_2_logfile.json',

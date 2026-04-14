@@ -24,11 +24,11 @@ from rasterio.features import rasterize
 from skimage.measure import shannon_entropy
 from skimage.metrics import mean_squared_error
 
-from config import config_etl_aerial
+from config import config_etl
 import utils as ut
 
 
-PARAMS = config_etl_aerial
+PARAMS = config_etl
 
 
 def timeit(func):

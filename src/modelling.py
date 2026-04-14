@@ -21,10 +21,10 @@ from torchvision import transforms
 from torchmetrics import ConfusionMatrix
 from segmentation_models_pytorch.encoders import get_preprocessing_fn
 
-from config import config_modelling_aerial
+from config import config_modelling
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-PARAMS = config_modelling_aerial
+PARAMS = config_modelling
 
 
 def get_connection_and_cursor(db_name):
