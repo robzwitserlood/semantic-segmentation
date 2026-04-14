@@ -41,8 +41,11 @@ config_download_data = {
         'file_name': 'bgtextract.zip',
     },
     'process_luchtfotos': {
-        'url_format': 'https://ns_hwh.fundaments.nl/hwh-ortho/2022/Ortho/1/04/beelden_tif_tegels/2022_X_Y_RGB_hrl.tif',
-        'bbox': (None, None, None, None),  # Initialize as tuple of None
+        # PDOK WMTS — replaces the defunct ns_hwh.fundaments.nl direct-download service
+        'wmts_url_template': 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/{layer}/EPSG:28992/{TileMatrix}/{TileCol}/{TileRow}.jpeg',
+        'wmts_layer': '2022_orthoHR',
+        'wmts_zoom': 13,          # zoom 13 → ~0.42 m/px; increase for finer detail at cost of more requests
+        'bbox': (None, None, None, None),  # populated at runtime by update_globals_based_on_region_name()
         'storage_dir': '.data/raw/aerial_imagery',
         'file_name': '2022_X_Y_RGB_hrl.tif',
     },
