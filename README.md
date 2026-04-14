@@ -41,6 +41,10 @@ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
 sudo apt update
 
+# libtinfo5 was dropped in Ubuntu 22.04; Nsight Systems (bundled in cuda-toolkit-12-1) requires it
+wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb
+sudo dpkg -i libtinfo5_6.3-2ubuntu0.1_amd64.deb
+
 # Install CUDA toolkit (includes driver)
 sudo apt install -y cuda-toolkit-12-1
 ```
