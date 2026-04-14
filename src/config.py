@@ -13,7 +13,7 @@ config_download_data = {
         'file_name': 'geom_in_scope.gml',
     },
     'process_wijkenbuurten': {
-        'wfs_url': 'https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?request=getcapabilities&service=wfs',
+        'wfs_url': 'https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v2_0?request=getcapabilities&service=WFS',
         'layer_name': 'cbs_wijken_2021',
         'storage_dir': '.data/raw',
         'file_name': 'neighbourhoods.gml',
