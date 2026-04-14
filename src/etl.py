@@ -2,7 +2,6 @@ import time
 import h5py
 import pathlib
 import psycopg
-import argparse
 
 import numpy as np
 import pandas as pd
@@ -25,29 +24,11 @@ from rasterio.features import rasterize
 from skimage.measure import shannon_entropy
 from skimage.metrics import mean_squared_error
 
-from config import config_etl_aerial, config_etl_satellite
+from config import config_etl_aerial
 import utils as ut
 
 
-PARAMS = dict()
-
-
-def set_config_params():
-    """Set global configuration parameters
-    based in command line argument
-    """
-    # Initialize command line argument parser
-    parser = argparse.ArgumentParser()
-    # Define argument type
-    parser.add_argument('imagery', type=str)
-    # Get parsed arguments
-    args = parser.parse_args()
-    # Select the corresponding configuration parameters
-    global PARAMS
-    if args.imagery == 'satellite':
-        PARAMS.update(config_etl_satellite)
-    elif args.imagery == 'aerial':
-        PARAMS.update(config_etl_aerial)
+PARAMS = config_etl_aerial
 
 
 def timeit(func):
@@ -783,7 +764,6 @@ def load_data_split(cur, conn):
 def main():
     """
     """
-    set_config_params()
     cur, conn = create_postgis_database()
     drop_and_create_tables(cur, conn)
     insert_data_in_tables(cur, conn)

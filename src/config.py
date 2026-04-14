@@ -1,4 +1,3 @@
-import copy
 # Config file
 # This file contains all configuration settings for the pilot_verharding_stad repository
 # The file is devided into section that correspond to modules of this repository
@@ -292,42 +291,21 @@ config_etl_aerial = {
         }
     },
     'downsample_for_plot': 125,
-    'path_downsampled_overview': './visuals/aerial_downsampled_overview.tif'
-}
-
-# Initialize config settings for satellite as copy of aerial
-config_etl_satellite = copy.deepcopy(config_etl_aerial)
-# Change config settings for satellite where required
-config_etl_satellite['postgres']['db_name'] = 'satellite_imagery'
-config_etl_satellite['postgres']['dir_imagery'] = 'data/raw/satellite_imagery'
-config_etl_satellite['postgres']['file_format_imagery'] = 'QEpspUbnkZrdMGvBQiKb2W.tif'
-# Workaround for fact that sat image does not contain top-left point of geometry of Utrecht
-config_etl_satellite['postgres']['select_image_file_by_point'] = """
-                                                                 SELECT file_name 
-                                                                 FROM dimImageFiles 
-                                                                 ORDER BY ST_Distance(bbox_geom, ST_Point(%s, %s)) ASC
-                                                                 """
-config_etl_satellite['hdf5']['path'] = './data/processed/satellite_dataset.hdf5'
-config_etl_satellite['downsample_for_plot'] = 20
-config_etl_satellite['path_downsampled_overview'] = './visuals/satellite_downsampled_overview.tif'
-config_etl_satellite['postgres']['exclude_tiles'] = """
-                                                    UPDATE dimTiles
-                                                    SET split = 'excluded'
-                                                    WHERE avg_edge < 0.025
-                                                    """
-# Satellite notebook pipeline — tile .nc file and parquet storage
-config_etl_satellite['dataset'] = {
-    'storage_dir': 'storage/dataset',
-    'agg_tile_data_file_name': 'agg_tile_data_file.parquet',
-    'usable_tiles_data_file': 'usable_tiles_data_file.parquet',
-    'data_split_file_name': 'data_split_file.parquet',
-    'split_fractions': [0.8, 0.1, 0.1],
-    'stratification_columns': ['impervious', 'pervious', 'unknown', 'entropy'],
-    'stratification_bins': 5,
-}
-config_etl_satellite['predictions'] = {
-    'storage_dir': 'storage/predictions',
-    'agg_pred_file_name': 'agg_pred_data_file.parquet',
+    'path_downsampled_overview': './visuals/aerial_downsampled_overview.tif',
+    # Notebook pipeline — tile .nc file and parquet storage
+    'dataset': {
+        'storage_dir': 'storage/dataset/aerial',
+        'agg_tile_data_file_name': 'agg_tile_data_file.parquet',
+        'usable_tiles_data_file': 'usable_tiles_data_file.parquet',
+        'data_split_file_name': 'data_split_file.parquet',
+        'split_fractions': [0.8, 0.1, 0.1],
+        'stratification_columns': ['impervious', 'pervious', 'unknown', 'entropy'],
+        'stratification_bins': 5,
+    },
+    'predictions': {
+        'storage_dir': 'storage/predictions/aerial',
+        'agg_pred_file_name': 'agg_pred_data_file.parquet',
+    },
 }
 
 # Config dict for etl_bgt.process() — derived from config_download_data and config_etl_aerial
@@ -472,22 +450,6 @@ config_modelling_aerial = {
     }
 }
 
-# Initialize config settings for satellite as copy of aerial
-config_modelling_satellite = copy.deepcopy(config_modelling_aerial)
-config_modelling_satellite['postgres']['db_name'] = config_etl_satellite['postgres']['db_name']
-config_modelling_satellite['hdf5']['path'] = config_etl_satellite['hdf5']['path']
-config_modelling_satellite['model']['storage_dir'] = '.artifacts/satellite_models'
-config_modelling_satellite['training']['log_storage_dir'] = './logs/satellite_train_log'
-config_modelling_satellite['training']['phase_1']['cross_entropy_loss_class_weights'] = [0.62553, 0.37447, 0]
-config_modelling_satellite['training']['phase_2']['cross_entropy_loss_class_weights'] = [0.62553, 0.37447, 0]
-config_modelling_satellite['training']['phase_3']['cross_entropy_loss_class_weights'] = [0.62553, 0.37447, 0]
-config_modelling_satellite['training']['phase_1']['initial_learning_rate'] = 0.001
-config_modelling_satellite['training']['phase_2']['initial_learning_rate'] = 0.0001
-config_modelling_satellite['training']['phase_3']['initial_learning_rate'] = 0.00001
-config_modelling_satellite['training']['phase_1']['num_epochs'] = 4
-config_modelling_satellite['training']['phase_2']['num_epochs'] = 4
-config_modelling_satellite['training']['phase_3']['num_epochs'] = 10
-
 
 # Module visualisation.py
 config_visualisation_aerial = {
@@ -574,58 +536,3 @@ config_visualisation_aerial = {
         'rgb_and_excluded': 'aer_rgb_and_excluded.jpg'
     }
 }
-
-
-# Initialize config settings for satellite as copy of aerial
-config_visualisation_satellite = copy.deepcopy(config_visualisation_aerial)
-config_visualisation_satellite['postgres']['db_name'] = config_etl_satellite['postgres']['db_name']
-config_visualisation_satellite['hdf5']['path'] = config_etl_satellite['hdf5']['path']
-config_visualisation_satellite['path_downsampled_overview'] = config_etl_satellite['path_downsampled_overview']
-config_visualisation_satellite['log_storage_dir'] = config_modelling_satellite['training']['log_storage_dir']
-config_visualisation_satellite['log_files'] = [
-    '20230405091957_phase_1_logfile.json',
-    '20230405092317_phase_2_logfile.json',
-    '20230405092621_phase_3_logfile.json'
-]
-config_visualisation_satellite['filenames']['downsampled_overview'] = 'sat_rgb_ovv.jpg'
-config_visualisation_satellite['filenames']['pixels_and_shares'] = 'sat_eda_pixels_and_shares.jpg'
-config_visualisation_satellite['filenames']['training_process'] = 'sat_training_process.jpg'
-config_visualisation_satellite['filenames']['cm_by_split'] = {
-    'train': 'confusion_matrices/sat_cm_train.jpg',
-    'validate': 'confusion_matrices/sat_cm_val.jpg',
-    'test': 'confusion_matrices/sat_cm_test.jpg'
-}
-config_visualisation_satellite['filenames']['cm_by_nbh'] = {
-    'train': 'confusion_matrices/sat_cm_train_NBH.jpg',
-    'validate': 'confusion_matrices/sat_cm_val_NBH.jpg',
-    'test': 'confusion_matrices/sat_cm_test_NBH.jpg'
-}
-config_visualisation_satellite['filenames']['performance_overview'] = 'sat_METRIC_by_neighbourhood.jpg'
-config_visualisation_satellite['example_tile_ids'] = [
-    5900,
-    5987,
-    4458,
-    6113,
-    1782,
-    4005,
-    4461,
-    2582,
-    488,
-    3126,
-    2362,
-    2347,
-    4810,
-    1615,
-    3792,
-    1031,
-    2702,
-    5001,
-    106,
-    5786,
-    5938,
-    2078,
-    3064]
-config_visualisation_satellite['filenames']['example_tiles'] = 'example_tiles/sat_tile_TILE_ID.jpg'
-config_visualisation_satellite['filenames']['bgt_object_type_count'] = 'sat_object_type_count.jpg'
-config_visualisation_satellite['filenames']['rgb_and_contrast'] = 'sat_rgb_and_contrast.jpg'
-config_visualisation_satellite['filenames']['rgb_and_excluded'] = 'sat_rgb_and_excluded.jpg'

@@ -4,16 +4,12 @@ import pathlib
 import numpy as np
 import xarray as xr
 import geopandas as gpd
-import mercantile as mct
-import matplotlib.pyplot as plt
 import xml.etree.ElementTree as et
 
 from pyproj import CRS
-from pyproj import Transformer
 from itertools import product
 from shapely.geometry import box, mapping
 from owslib.wfs import WebFeatureService
-from owslib.wmts import WebMapTileService
 
 
 def build_aerial_mosaic(storage_dir, file_format):
@@ -113,143 +109,6 @@ class NlRegionToGeom:
         geometry = gdf.loc[gdf['naam'] == region_name]['geometry'].values[0]
 
         return geometry
-
-
-class TiledBbox:
-    """Class to load geometries of regions in the Netherlands
-    via a web feature service.
-
-    :param geometry: geometry to be bboxed and tiled
-    :type geometry: shapely.geometry.polygon.Polygon
-    :param crs: coordinate reference system object
-    :type crs: pyproj.crs.crs.CRS
-    :param zoom: zoom-level of tile matrix set
-    :type zoom: int
-    """
-
-    def __init__(self, geometry, crs, zoom):
-        """Constructor method
-        """
-        self.geometry = geometry
-        self.crs = crs
-        self.zoom = zoom
-        self.transformer_in = Transformer.from_crs(crs, CRS.from_epsg(3857), always_xy=True)
-        self.transformer_out = Transformer.from_crs(CRS.from_epsg(3857), crs, always_xy=True)
-        self.row_col_list = self.get_rows_and_columns()
-        self.bbox = self.get_bbox()
-
-    def get_bl_and_tr_tile(self):
-        """Get bottom-left and top-right tile of bbox.
-
-        :return: bottom-left and top-right tile
-        :rtype: tuple (mercantile.Tile, mercantile.Tile)
-        """
-        # Get bounds of the geometry
-        x_min, y_min, x_max, y_max = self.geometry.bounds
-        # Transform to coordinate frame of tile matrix set
-        lng_min, lat_min = mct.lnglat(*self.transformer_in.transform(x_min, y_min))
-        lng_max, lat_max = mct.lnglat(*self.transformer_in.transform(x_max, y_max))
-        # Get tile objects
-        tile_bl = mct.tile(lng_min, lat_min, self.zoom)
-        tile_tr = mct.tile(lng_max, lat_max, self.zoom)
-
-        return tile_bl, tile_tr
-
-    def get_rows_and_columns(self):
-        """Get rows range (y) and column range (x) of tile matrix set.
-
-        :return: List of row-column combinations of tiles
-        :rtype: list
-        """
-        # Get tile objects
-        tile_bl, tile_tr = self.get_bl_and_tr_tile()
-        # Get row and column range (mind the reverse order in rows)
-        row_range = range(tile_tr.y, tile_bl.y + 1)
-        col_range = range(tile_bl.x, tile_tr.x + 1)
-        # Create list of (row, column) tuples
-        row_col_list = list(product(row_range, col_range))
-
-        return row_col_list
-
-    def get_bbox(self):
-        """Get bottom-left and top-right coordinates of tiled bbox.
-
-        :return: bottom-left and top-right coordinates
-        :rtype: list
-        """
-        # Get tile objects
-        tile_min, tile_max = self.get_bl_and_tr_tile()
-        # Get long lat of bbox
-        lng_min, lat_min, _, _ = mct.bounds(tile_min)
-        _, _, lng_max, lat_max = mct.bounds(tile_max)
-        # Transform
-        x_min, y_min = self.transformer_out.transform(*mct.xy(lng_min, lat_min))
-        x_max, y_max = self.transformer_out.transform(*mct.xy(lng_max, lat_max))
-
-        return [x_min, y_min, x_max, y_max]
-
-    def explore(self):
-        """Visualize tiled bbox on top of base map.
-
-        :return: interactive map
-        :rtype: folium.folium.Map
-        """
-        return gpd.GeoDataFrame(data={'label': ['tiled bbox', 'envelope', 'region'],
-                                      'geometry': [box(*self.bbox).boundary,
-                                                   self.geometry.envelope.boundary,
-                                                   self.geometry.boundary]},
-                                crs=self.crs).explore(tiles='CartoDB positron',
-                                                      column='label')
-
-    def id_to_bbox(self, tile_id):
-        """Return tile object that corresponds to tile id
-
-        :return: bottom-left and top-right coordinates
-        :rtype: list
-        """
-        # Get row and column number
-        row, column = self.row_col_list[tile_id]
-        # Get bounding longitudes and latitudes
-        lng_min, lat_min, lng_max, lat_max = mct.bounds(column, row, self.zoom)
-        # Transform to xy in output crs
-        x_min, y_min = self.transformer_out.transform(*mct.xy(lng_min, lat_min))
-        x_max, y_max = self.transformer_out.transform(*mct.xy(lng_max, lat_max))
-
-        return [x_min, y_min, x_max, y_max]
-
-    def iter_bbox(self):
-        """Iterate over all tiles as tiles and yield the bbox of the tile.
-
-        :return: bottom-left and top-right coordinates of all tiles
-        :rtype: generator function
-        """
-        for i in range(len(self.row_col_list)):
-            yield self.id_to_bbox(i)
-
-    def get_wkt_bbox(self):
-        """Return wkt representation of bbox.
-
-        :return: wkt representation of bbox
-        :rtype: str
-        """
-        return box(*self.bbox).wkt
-
-    def write_geojson_of_bbox(self, file_dir, file_name):
-        """Write bbox to GeoJSON file
-        """
-        path = pathlib.Path.cwd() / file_dir / file_name
-        # Transform to WGS84
-        lng_min, lat_min = mct.lnglat(*self.transformer_in.transform(*self.bbox[0:2]))
-        lng_max, lat_max = mct.lnglat(*self.transformer_in.transform(*self.bbox[2:4]))
-        # Open file
-        with open(path, 'r') as fp:
-            geojson_format = json.load(fp)
-        geojson_bbox = mapping(box(lng_min, lat_min, lng_max, lat_max))
-        # Replace coordinates in format
-        geojson_format['features'][0]['geometry']['coordinates'] = [[[i[0], i[1]] for i in geojson_bbox['coordinates'][0]]]
-        # Write to file
-        with open(path, 'w') as fp:
-            json.dump(geojson_format, fp)
 
 
 class TiffBasedTiledBbox:

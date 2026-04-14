@@ -1,8 +1,6 @@
-import json
 import pathlib
 import matplotlib
 matplotlib.rcParams.update({'font.size': 16})
-import multiprocessing
 
 import numpy as np
 import xarray as xr
@@ -18,7 +16,6 @@ from rasterio.plot import plotting_extent
 from skimage.filters import sobel
 from skimage.color import rgb2gray
 from scipy.signal import convolve2d
-from joblib import Parallel, delayed
 from geocube.api.core import make_geocube
 from skimage.measure import shannon_entropy
 from skimage.metrics import mean_squared_error

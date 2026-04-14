@@ -1,4 +1,3 @@
-import argparse
 import json
 import pathlib
 import h5py
@@ -18,29 +17,11 @@ import plotly.offline as py
 from rasterio.plot import show
 from rasterio.mask import mask
 
-from config import config_visualisation_aerial, config_visualisation_satellite
+from config import config_visualisation_aerial
 
 matplotlib.rcParams.update({'font.size': 16})
 
-PARAMS = dict()
-
-
-def set_config_params():
-    """Set global configuration parameters
-    based in command line argument
-    """
-    # Initialize command line argument parser
-    parser = argparse.ArgumentParser()
-    # Define argument type
-    parser.add_argument('imagery', type=str)
-    # Get parsed arguments
-    args = parser.parse_args()
-    # Select the corresponding configuration parameters
-    global PARAMS
-    if args.imagery == 'satellite':
-        PARAMS.update(config_visualisation_satellite)
-    elif args.imagery == 'aerial':
-        PARAMS.update(config_visualisation_aerial)
+PARAMS = config_visualisation_aerial
         
 
 def get_engine(db_name):
@@ -655,7 +636,6 @@ def plot_rgb_and_excluded(engine, geom):
 def main():
     """
     """
-    set_config_params()
     #conn, cur = get_connection_and_cursor(PARAMS['postgres']['db_name'])
     engine = get_engine(PARAMS['postgres']['db_name'])
     geom = get_geometry_to_be_tiled()

@@ -5,9 +5,7 @@ import h5py
 import pathlib
 import torch
 import random
-import argparse
 import psycopg
-import sqlalchemy
 
 import numpy as np
 import pandas as pd
@@ -23,52 +21,10 @@ from torchvision import transforms
 from torchmetrics import ConfusionMatrix
 from segmentation_models_pytorch.encoders import get_preprocessing_fn
 
-from config import config_modelling_aerial, config_modelling_satellite
+from config import config_modelling_aerial
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-PARAMS = dict()
-
-
-def set_config_params():
-    """Set global configuration parameters
-    based in command line argument
-    """
-    # Initialize command line argument parser
-    parser = argparse.ArgumentParser()
-    # Define argument type
-    parser.add_argument('imagery', type=str)
-    # Get parsed arguments
-    args = parser.parse_args()
-    # Select the corresponding configuration parameters
-    global PARAMS
-    if args.imagery == 'satellite':
-        PARAMS.update(config_modelling_satellite)
-    elif args.imagery == 'aerial':
-        PARAMS.update(config_modelling_aerial)
-
-
-def get_engine(db_name):
-    """Connects a postgis database and returns
-    an engine engine for the database
-
-    :param db_name: name of database
-    :type db_name: str
-    ...
-    :return: engine for the database
-    :rtype: sqlalchemy.engine.Engine
-    """
-    # create url
-    url_object = sqlalchemy.engine.URL.create(
-        drivername='postgresql+psycopg2',
-        username=PARAMS['postgres']['user'],
-        password=PARAMS['postgres']['password'],
-        host=PARAMS['postgres']['host'],
-        database=db_name
-        )
-    # Get engine object
-    engine = sqlalchemy.create_engine(url_object)
-
-    return engine
+PARAMS = config_modelling_aerial
 
 
 def get_connection_and_cursor(db_name):
@@ -552,7 +508,6 @@ def write_predictions(conn, cur, filename_model_parameters):
 def main():
     """
     """
-    set_config_params()
     conn, cur = get_connection_and_cursor(PARAMS['postgres']['db_name'])
     filename_model_parameters = phased_model_training(cur)
     write_predictions(conn, cur, filename_model_parameters)
