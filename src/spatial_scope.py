@@ -1,6 +1,5 @@
 import json
 import pathlib
-import subprocess
 
 import numpy as np
 import xarray as xr
@@ -17,23 +16,24 @@ from owslib.wfs import WebFeatureService
 from owslib.wmts import WebMapTileService
 
 
-def build_aerial_vrt(storage_dir, file_format):
-    """Build a GDAL VRT mosaic from aerial GeoTIFF tiles.
+def build_aerial_mosaic(storage_dir, file_format):
+    """Build an in-memory mosaic DataArray from aerial GeoTIFF tiles.
 
     :param storage_dir: directory containing the tiff files
     :type storage_dir: str
     :param file_format: glob pattern matching the tiff files
     :type file_format: str
-    :return: name of the generated VRT file
-    :rtype: str
+    :return: merged DataArray covering all tiles
+    :rtype: xarray.DataArray
     """
+    import rioxarray as rxr
+    from rioxarray.merge import merge_arrays
+
     dir_path = pathlib.Path.cwd() / storage_dir
-    vrt_path = dir_path / 'mosaic.vrt'
-    tifs = sorted(dir_path.glob(file_format))
-    if not tifs:
+    paths = sorted(dir_path.glob(file_format))
+    if not paths:
         raise FileNotFoundError(f"No files matching {file_format} in {dir_path}")
-    subprocess.run(['gdalbuildvrt', str(vrt_path)] + [str(p) for p in tifs], check=True)
-    return vrt_path.name
+    return merge_arrays([rxr.open_rasterio(p) for p in paths])
 
 
 class NlRegionToGeom:
@@ -267,12 +267,12 @@ class TiffBasedTiledBbox:
     :type image_size: int
     """
 
-    def __init__(self, geometry, crs, storage_dir, file_name, image_size):
+    def __init__(self, geometry, crs, storage_dir, file_name, image_size, data_array=None):
         """Constructor method
         """
         self.geometry = geometry
         self.crs = crs
-        self.data_array = xr.open_dataarray(pathlib.Path.cwd() / storage_dir / file_name)
+        self.data_array = data_array if data_array is not None else xr.open_dataarray(pathlib.Path.cwd() / storage_dir / file_name)
         self.image_size = image_size
         self.bbox = self.get_bbox()
         self.row_col_list = self.get_row_col_list()
