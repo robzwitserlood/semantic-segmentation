@@ -294,7 +294,7 @@ config_etl = {
     'path_downsampled_overview': './visuals/aerial_downsampled_overview.tif',
     # Notebook pipeline — tile .nc file and parquet storage
     'dataset': {
-        'storage_dir': 'storage/dataset/aerial',
+        'storage_dir': 'data/processed/aerial_imagery',
         'agg_tile_data_file_name': 'agg_tile_data_file.parquet',
         'usable_tiles_data_file': 'usable_tiles_data_file.parquet',
         'data_split_file_name': 'data_split_file.parquet',
@@ -303,7 +303,7 @@ config_etl = {
         'stratification_bins': 5,
     },
     'predictions': {
-        'storage_dir': 'storage/predictions/aerial',
+        'storage_dir': 'data/predictions/aerial_imagery',
         'agg_pred_file_name': 'agg_pred_data_file.parquet',
     },
 }
@@ -365,6 +365,7 @@ config_modelling = {
     'hdf5': {
         'path': config_etl['hdf5']['path']
     },
+    'dataset': config_etl['dataset'],
     'low_int_seed': 2147483647,
     'seed': 42,
     'batch_size': 64,

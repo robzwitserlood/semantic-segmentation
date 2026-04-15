@@ -1,4 +1,5 @@
 import pathlib
+import h5py
 import matplotlib
 matplotlib.rcParams.update({'font.size': 16})
 
@@ -250,6 +251,8 @@ class DataSetCreator:
         if self.ready_to_start(overwrite):
             # Initiate list for aggregated data
             agg_data = list()
+            # Create directory
+            pathlib.Path(self.out_storage_dir).mkdir(parents=True, exist_ok=True)
             # Loop through all tiles
             for tile_id, tile_bbox in tqdm(enumerate(self.tbbox.iter_bbox()), total=len(self.tbbox.row_col_list)):
                 # Extract ground truth data from Geodataframe
@@ -284,6 +287,43 @@ class DataSetCreator:
             df.to_parquet(path)
 
             return df
+
+    def create_hdf5(self, hdf5_path):
+        """Create HDF5 dataset from existing .nc tile files.
+
+        Reads each tile_{id}.nc from out_storage_dir and writes rgb and gt
+        arrays into HDF5 at data/processed/aerial_dataset.hdf5 (or the
+        supplied path).  A pre-allocated pred dataset (zeros) is included so
+        write_predictions() can fill it in.
+
+        :param hdf5_path: destination path for the HDF5 file
+        :type hdf5_path: str or pathlib.Path
+        """
+        tile_count = len(self.tbbox.row_col_list)
+        path = pathlib.Path(hdf5_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with h5py.File(path, 'w') as f:
+            dset_rgb = f.create_dataset('rgb', shape=(tile_count, 3, 256, 256),
+                                        chunks=(1, 3, 256, 256), dtype='uint8')
+            dset_gt = f.create_dataset('gt', shape=(tile_count, 1, 256, 256),
+                                       chunks=(1, 1, 256, 256), dtype='uint8')
+            f.create_dataset('pred', shape=(tile_count, 1, 256, 256),
+                             chunks=(1, 1, 256, 256), dtype='uint8')
+            for tile_id in tqdm(range(tile_count)):
+                nc_path = self.out_storage_dir / f'tile_{tile_id:05d}.nc'
+                ds = xr.open_dataset(nc_path)
+                rgb = np.stack([
+                    ds['red'].values,
+                    ds['green'].values,
+                    ds['blue'].values,
+                ]).clip(0, 255).astype(np.uint8)
+                gt = np.where(
+                    ds['impervious'].values == 1, 0,
+                    np.where(ds['pervious'].values == 1, 1, 2)
+                ).reshape(1, 256, 256).astype(np.uint8)
+                ds.close()
+                dset_rgb[tile_id] = rgb
+                dset_gt[tile_id] = gt
 
     def preview_tile(self, tile_id):
         """Plot rgb image of tile and labelling of pixels
@@ -597,10 +637,8 @@ class DataSetSplitter:
         """
         # Load dataframe with aggregated tile data for stratification purposes
         agg_tile_data_path = pd.read_parquet(self.agg_tile_data_path)
-        # Load series with usable tiles for selection purposes
-        usable_tiles = pd.read_parquet(self.usable_tiles_path).used
         # Select required rows and columns for dataframe
-        df = agg_tile_data_path.loc[usable_tiles, self.strat_col_names].copy()
+        df = agg_tile_data_path.loc[:, self.strat_col_names].copy()
         # Create a quantile column for each stratification column
         for quant_col_name, strat_col_name in zip(self.quant_col_names, self.strat_col_names):
             df[quant_col_name] = pd.qcut(df[strat_col_name],

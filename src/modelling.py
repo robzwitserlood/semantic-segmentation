@@ -52,30 +52,23 @@ def get_connection_and_cursor(db_name):
 class VerhardingDataset(Dataset):
     """Reads in images and transforms pixel values.
 
-    :param cur: cursor to the database
-    :type cur: psycopg.extensions.cursor
-    :param split: name of split (train, val or test)
-    :type split: str
+    :param split: name of split ('train', 'val', 'test', or None for all)
+    :type split: str or None
     :param input_transforms: transformation sequence for input
     :type input_transforms: torchvision.transforms
     :param target_transforms: transformation sequence for target
     :type target_transforms: torchvision.transforms
     """
-    def __init__(self, cur, split=None, input_transforms=None,
+    def __init__(self, split=None, input_transforms=None,
                  target_transforms=None):
         self.f = h5py.File(PARAMS['hdf5']['path'], 'r')
+        split_path = (pathlib.Path(PARAMS['dataset']['storage_dir'])
+                      / PARAMS['dataset']['data_split_file_name'])
+        df_split = pd.read_parquet(split_path)
         if split:
-            cur.execute("""
-                        SELECT tile_id FROM dimTiles
-                        WHERE split = %s::split_cat
-                        """, (split,))
-            self.tile_ids = [i[0] for i in cur.fetchall()]
+            self.tile_ids = df_split[df_split['split'] == split].index.tolist()
         else:
-            cur.execute("""
-                        SELECT tile_id FROM dimTiles
-                        WHERE split != 'excluded'::split_cat
-                        """)
-            self.tile_ids = [i[0] for i in cur.fetchall()]
+            self.tile_ids = df_split.index.tolist()
         # Get seed to make sure tansforms of input and target are aligned
         self.seed = np.random.randint(PARAMS['low_int_seed'])
         self.input_transforms = input_transforms
@@ -204,7 +197,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler,
     with open(log_path, 'w') as fp:
         json.dump(dict(), fp)
     # Initialize ConfusionMatrix instance
-    confmat = ConfusionMatrix(num_classes=3).to(device)
+    confmat = ConfusionMatrix(task="multiclass", num_classes=3).to(device)
     # Initialize list to remember performance
     val_f1_history = []
     # Initialize best version of model and best f1
@@ -296,7 +289,7 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def create_dataloaders(engine):
+def create_dataloaders():
     """
     """
     preprocess_input = get_preprocessing_fn(PARAMS['model']['encoder_name'],
@@ -310,7 +303,7 @@ def create_dataloaders(engine):
             transforms.Normalize(preprocess_input.keywords['mean'],
                                  preprocess_input.keywords['std'])
         ]),
-        'validate': transforms.Compose([
+        'val': transforms.Compose([
             transforms.Lambda(lambda x: torch.from_numpy(x)),
             transforms.Lambda(lambda x: x.type(torch.FloatTensor)),
             transforms.Normalize(preprocess_input.keywords['mean'],
@@ -325,7 +318,7 @@ def create_dataloaders(engine):
             transforms.RandomHorizontalFlip(),
             transforms.Lambda(lambda x: x.type(torch.FloatTensor))
         ]),
-        'validate': transforms.Compose([
+        'val': transforms.Compose([
             transforms.Lambda(lambda x: torch.from_numpy(x).long().squeeze()),
             transforms.Lambda(lambda x: nn.functional.one_hot(x, 3)),
             transforms.Lambda(lambda x: torch.permute(x, (2, 0, 1))),
@@ -334,14 +327,12 @@ def create_dataloaders(engine):
     }
 
     # Create training and validation datasets
-    train_set = VerhardingDataset(engine,
-                                  split='train',
+    train_set = VerhardingDataset(split='train',
                                   input_transforms=input_transforms['train'],
                                   target_transforms=target_transforms['train'])
-    val_set = VerhardingDataset(engine,
-                                split='validate',
-                                input_transforms=input_transforms['validate'],
-                                target_transforms=target_transforms['validate'])
+    val_set = VerhardingDataset(split='val',
+                                input_transforms=input_transforms['val'],
+                                target_transforms=target_transforms['val'])
     # Set seed for random data shuffle
     g = torch.Generator()
     g.manual_seed(PARAMS['seed'])
@@ -362,16 +353,18 @@ def create_dataloaders(engine):
     return dataloaders
 
 
-def phased_model_training(engine):
+def phased_model_training():
     """
     """
     # Create dataloaders
-    dataloaders = create_dataloaders(engine)
+    dataloaders = create_dataloaders()
     # Initialize filename for best model parameters after each phase
     filename_model_parameters = None
     # Set log directory
     log_dir = pathlib.Path(PARAMS['training']['log_storage_dir'])
     model_dir = pathlib.Path(PARAMS['model']['storage_dir'])
+    pathlib.Path(log_dir).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(model_dir).mkdir(parents=True, exist_ok=True)
     # Train model in phases
     for phase in PARAMS['training']['phase_names']:
         # Print info about phase
@@ -447,8 +440,7 @@ def write_predictions(conn, cur, filename_model_parameters):
         transforms.Lambda(lambda x: torch.permute(x, (2, 0, 1))),
         transforms.Lambda(lambda x: x.type(torch.FloatTensor))])
     # Create dataset instance that contains all data in dataset
-    complete_set = VerhardingDataset(cur=cur,
-                                     split=None,
+    complete_set = VerhardingDataset(split=None,
                                      input_transforms=input_transforms,
                                      target_transforms=target_transforms)
     # Create dataloader (please note the hardcoded batch size)
@@ -471,7 +463,7 @@ def write_predictions(conn, cur, filename_model_parameters):
     # Set model to evaluate mode
     model.eval()
     # Initialize ConfusionMatrix instance
-    confmat = ConfusionMatrix(num_classes=3).to(device)
+    confmat = ConfusionMatrix(task="multiclass", num_classes=3).to(device)
     # Loop over batches of tiles
     for idxs, inputs, labels in tqdm(dataloader):
         inputs = inputs.to(device)
