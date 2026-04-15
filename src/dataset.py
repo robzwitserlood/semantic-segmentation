@@ -4,7 +4,6 @@ matplotlib.rcParams.update({'font.size': 16})
 
 import numpy as np
 import xarray as xr
-import rioxarray as rxr
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -51,24 +50,26 @@ def rasterize_accordingly(gdfc, tile_ds, col):
 class DataSetCreator:
     """Class to create data set of tiles.
 
-    :param geometry: geometry to be bboxed and tiled
-    :type geometry: shapely.geometry.polygon.Polygon
-    :param crs: coordinate reference system object
-    :type crs: pyproj.crs.crs.CRS
-    :param storage_dir: directory of tiff file on which bbox is based
-    :type storage_dir: str
-    :param file_name: name of tiff file on which bbox is based
-    :type file_name: str
-    :param image_size: image (aka tile) size
-    :type image_size: int
+    :param tbbox: tiled bounding box defining the spatial grid of tiles
+    :type tbbox: TiffBasedTiledBbox
+    :param gdf: ground truth geometries (BGT labels)
+    :type gdf: geopandas.GeoDataFrame
+    :param data_array: merged mosaic DataArray covering all source imagery
+    :type data_array: xarray.DataArray
+    :param out_storage_dir: output directory for tile .nc files and metadata parquet
+    :type out_storage_dir: str
+    :param out_file_name: file name for the aggregated tile metadata parquet
+    :type out_file_name: str
+    :param featuretypes: BGT feature type names used as columns in metadata
+    :type featuretypes: list
     """
 
-    def __init__(self, tbbox, gdf, in_storage_dir, in_file_name, out_storage_dir, out_file_name, featuretypes):
+    def __init__(self, tbbox, gdf, data_array, out_storage_dir, out_file_name, featuretypes):
         """Constructor method
         """
         self.tbbox = tbbox
         self.gdf = gdf
-        self.data_array = rxr.open_rasterio(pathlib.Path.cwd() / in_storage_dir / in_file_name)
+        self.data_array = data_array
         self.resolution = self.get_resolution()
         self.area_of_tile = self.get_area_of_tile()
         self.out_storage_dir = pathlib.Path.cwd() / out_storage_dir
@@ -268,7 +269,7 @@ class DataSetCreator:
                 file_name = f'tile_{str(tile_id).zfill(5)}.nc'
                 tile_path = self.out_storage_dir / file_name
                 ds_tile.attrs.clear()
-                ds_tile.astype(int, casting='safe').to_netcdf(tile_path,
+                ds_tile.round().astype(int).to_netcdf(tile_path,
                                                                 encoding={'red': {'dtype': 'int16'},
                                                                         'green': {'dtype': 'int16'},
                                                                         'blue': {'dtype': 'int16'},
